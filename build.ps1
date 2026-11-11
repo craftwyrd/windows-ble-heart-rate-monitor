@@ -18,7 +18,8 @@ $PythonExe = Join-Path $ProjectDir ".venv\Scripts\python.exe"
 if ($LASTEXITCODE -ne 0) { throw "Dependency setup failed." }
 & $PythonExe -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw "Dependency setup failed." }
-& $PythonExe -m pytest
+# Tk retains native standard handles; avoid pytest's file-descriptor redirection.
+& $PythonExe -m pytest --capture=sys
 if ($LASTEXITCODE -ne 0) { throw "Tests failed; executable was not rebuilt." }
 & $PythonExe -m PyInstaller --noconfirm --clean PulseDesk.spec
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
