@@ -499,7 +499,7 @@ class HeartRateMonitor:
         self.root.protocol("WM_DELETE_WINDOW", self.close_app)
         self.root.bind("<Escape>", lambda _event: self.close_app())
         self.root.iconbitmap(default=str(ASSET_DIR / "pulsedesk.ico"))
-        self._icon_image = tk.PhotoImage(file=str(ASSET_DIR / "pulsedesk.png"))
+        self._icon_image = tk.PhotoImage(master=self.root, file=str(ASSET_DIR / "pulsedesk.png"))
         self.root.iconphoto(True, self._icon_image)
         self.root.bind("<Map>", self._on_window_mapped, add="+")
         self.root.bind("<Configure>", self._on_window_configured, add="+")
@@ -1401,7 +1401,7 @@ class HeartRateMonitor:
             )
 
         caption = f"设备: {self.connected_device_name}"
-        font = tkfont.Font(font=self.lbl_device_caption.cget("font"))
+        font = tkfont.Font(root=self.root, font=self.lbl_device_caption.cget("font"))
         available = max(130, self.meta_frame.winfo_width() - 4)
         if font.measure(caption) > available:
             while caption and font.measure(caption + "…") > available:
