@@ -103,7 +103,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 ### 持续集成与发布
 
-[Windows build and release](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/actions/workflows/build.yml) 在推送 `main`、向 `main` 提交 PR 或手动触发时，使用 Windows x64 / Python 3.12 执行同一份 `build.ps1`，运行测试并打包 EXE，再检查演示进程能否持续运行。成功后可在工作流运行页面下载 `PulseDesk-windows-x64` 构建产物（保留 14 天）。
+[Windows build and release](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/actions/workflows/build.yml) 在推送 `main`、向 `main` 提交 PR 或手动触发时，使用 Windows x64 / Python 3.10.11 执行同一份 `build.ps1`，运行测试并打包 EXE，再检查演示进程能否持续运行。成功后可在工作流运行页面下载 `PulseDesk-windows-x64` 构建产物（保留 14 天）。
 
 维护者推送 `v主版本.次版本.修订版本` 标签时，流水线会在验证成功后自动发布 GitHub Release，附带 `PulseDesk.exe` 和 `SHA256SUMS.txt`。发布说明优先读取 `docs/releases/<标签>.md`，没有对应文件时自动生成；已发布版本的附件不会被重跑覆盖。首个基础版本为 `v0.1.0`。
 

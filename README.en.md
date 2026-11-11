@@ -105,7 +105,7 @@ The script creates or reuses `.venv`, installs dependencies, runs tests, and pac
 
 ### Continuous integration and releases
 
-[Windows build and release](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/actions/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. It uses Windows x64 and Python 3.12 to run the same `build.ps1`, execute tests, package the EXE, and check that its demo process stays running. Successful runs provide a `PulseDesk-windows-x64` artifact retained for 14 days.
+[Windows build and release](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/actions/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. It uses Windows x64 and Python 3.10.11 to run the same `build.ps1`, execute tests, package the EXE, and check that its demo process stays running. Successful runs provide a `PulseDesk-windows-x64` artifact retained for 14 days.
 
 When a maintainer pushes a `vMAJOR.MINOR.PATCH` tag, the workflow publishes a GitHub Release after validation, attaching `PulseDesk.exe` and `SHA256SUMS.txt`. Release notes come from `docs/releases/<tag>.md` when available, otherwise they are generated automatically. Reruns do not overwrite assets of an already published release. The first basic version is `v0.1.0`.
 
