@@ -20,7 +20,7 @@ if ($LASTEXITCODE -ne 0) { throw "Dependency setup failed." }
 if ($LASTEXITCODE -ne 0) { throw "Dependency setup failed." }
 & $PythonExe -m pytest
 if ($LASTEXITCODE -ne 0) { throw "Tests failed; executable was not rebuilt." }
-& $PythonExe -m PyInstaller --noconfirm --clean --onefile --windowed --name PulseDesk app.py
+& $PythonExe -m PyInstaller --noconfirm --clean PulseDesk.spec
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
 
 Write-Host "Built: $ProjectDir\dist\PulseDesk.exe"

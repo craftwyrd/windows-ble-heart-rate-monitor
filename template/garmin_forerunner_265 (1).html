@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garmin Forerunner 265 实时心率悬浮窗 · 交互式设计验收与全状态工作台</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      user-select: none;
+    }
+    .mono-num {
+      font-family: 'JetBrains Mono', 'Consolas', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    /* 模拟桌面壁纸模式 */
+    .wallpaper-dark {
+      background: radial-gradient(circle at 20% 20%, #1e293b 0%, #0f172a 55%, #020617 100%);
+    }
+    .wallpaper-light {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
+    }
+    .wallpaper-split {
+      background: linear-gradient(90deg, #0f172a 0%, #1e293b 49.9%, #f1f5f9 50.1%, #e2e8f0 100%);
+    }
+    /* 极简红心微脉动动效 */
+    @keyframes heartPulse {
+      0%, 100% { transform: scale(1); }
+      18% { transform: scale(1.16); }
+      34% { transform: scale(0.96); }
+      50% { transform: scale(1.08); }
+    }
+    .heart-beating {
+      animation: heartPulse 0.95s infinite ease-in-out;
+    }
+    /* 极简胶囊悬停才浮现微操作栏 */
+    .mini-pill-shell .mini-hover-actions {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s ease;
+    }
+    .mini-pill-shell:hover .mini-hover-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0e1218;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2e3846;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- 顶部设计验收控制栏 -->
+  <header class="bg-slate-900/95 border-b border-slate-800 px-4 py-3 sticky top-0 z-50 backdrop-blur">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-400/30 text-rose-400 font-bold text-base">♥</span>
+        <div>
+          <h1 class="text-sm font-semibold text-slate-100 flex items-center gap-2">
+            Garmin Forerunner 265 实时心率悬浮窗
+            <span class="text-xs font-normal px-2 py-0.5 rounded bg-rose-950/60 border border-rose-500/30 text-rose-300">新增：极简红心 + 数字模式</span>
+          </h1>
+          <p class="text-xs text-slate-400">支持「极简红心胶囊 (136×48px)」、「迷你无框贴片」与「完整曲线面板」一键切换 · 3字符定宽防跳动</p>
+        </div>
+      </div>
+
+      <!-- 视图切换 Tabs -->
+      <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+        <button id="tabBtnInteractive" onclick="switchMainView('interactive')" class="px-3 py-1.5 rounded-md text-xs font-medium bg-sky-600 text-white transition">
+          交互式桌面演练场
+        </button>
+        <button id="tabBtnMinimalSpec" onclick="switchMainView('minimalspec')" class="px-3 py-1.5 rounded-md text-xs font-medium text-rose-400 hover:text-rose-200 transition">
+          ♥ 极简红心方案对比稿
+        </button>
+        <button id="tabBtnSpecGrid" onclick="switchMainView('specgrid')" class="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition">
+          全状态视觉稿矩阵 (7+2 态同屏)
+        </button>
+        <button id="tabBtnBuildDoc" onclick="switchMainView('builddoc')" class="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition">
+          架构与单文件 EXE 验收清单
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 视图 1：交互式桌面演练场 ==================== -->
+  <main id="viewInteractive" class="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto p-4 gap-4">
+
+    <!-- 左侧：验收控制与状态注入面板 -->
+    <aside class="w-full lg:w-80 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col gap-3.5 shrink-0">
+
+      <!-- 0. 悬浮窗显示形态切换（默认选中极简红心胶囊） -->
+      <div class="bg-slate-950/90 border border-rose-500/30 rounded-lg p-2.5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xs font-semibold text-rose-300 flex items-center gap-1">
+            <span>♥</span> 0. 选择悬浮窗外观形态
+          </h2>
+          <span class="text-[10px] text-slate-400">可随时切换</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button id="modeBtnPill" onclick="setDisplayMode('pill')" class="py-1.5 px-2 rounded text-xs font-semibold bg-rose-600 text-white shadow">
+            ♥ 红心胶囊
+          </button>
+          <button id="modeBtnHud" onclick="setDisplayMode('hud')" class="py-1.5 px-2 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">
+            ♥ 纯透贴片
+          </button>
+          <button id="modeBtnFull" onclick="setDisplayMode('full')" class="py-1.5 px-2 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">
+            完整曲线窗
+          </button>
+        </div>
+        <p id="modeDescText" class="text-[11px] text-slate-400 mt-2 leading-snug">
+          当前：<strong class="text-slate-200">极简红心胶囊 (136×48px)</strong> — 仅显示左侧红心与右侧大号数字；鼠标悬停时才浮现展开/置顶/关闭小按钮。
+        </p>
+      </div>
+
+      <!-- 1. 切换 7 种核心连接状态 -->
+      <div>
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">1. 切换 7 种核心连接状态</h2>
+        <div class="grid grid-cols-2 gap-1.5" id="stateButtonsContainer">
+          <button onclick="applySimState('DISCONNECTED')" data-state-btn="DISCONNECTED" class="state-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border border-slate-800 bg-slate-950 hover:bg-slate-800 flex items-center justify-between">
+            <span>○ 未连接</span>
+            <span class="text-[10px] text-slate-400">初始</span>
+          </button>
+          <button onclick="applySimState('SCANNING')" data-state-btn="SCANNING" class="state-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border border-slate-800 bg-slate-950 hover:bg-slate-800 flex items-center justify-between">
+            <span class="text-sky-400">◎ 扫描中</span>
+            <span class="text-[10px] text-slate-400">搜索</span>
+          </button>
+          <button onclick="applySimState('DEVICES_FOUND')" data-state-btn="DEVICES_FOUND" class="state-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border border-slate-800 bg-slate-950 hover:bg-slate-800 flex items-center justify-between">
+            <span class="text-sky-400">● 有设备</span>
+            <span class="text-[10px] text-slate-400">0x180D</span>
+          </button>
+          <button onclick="applySimState('CONNECTING')" data-state-btn="CONNECTING" class="state-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border border-slate-800 bg-slate-950 hover:bg-slate-800 flex items-center justify-between">
+            <span class="text-sky-400">◔ 连接中</span>
+            <span class="text-[10px] text-slate-400">握手</span>
+          </button>
+          <button onclick="applySimState('LIVE')" data-state-btn="LIVE" class="state-btn px-2.5 py-2 rounded-lg text-xs font-medium text-left border border-emerald-500/40 bg-emerald-950/30 hover:bg-emerald-900/40 flex items-center justify-between col-span-2">
+            <span class="text-emerald-400 font-semibold">● 实时数据 (Live Streaming)</span>
+            <span class="text-[10px] text-emerald-300 mono-num">0x2A37 通知</span>
+          </button>
+          <button onclick="applySimState('SIGNAL_LOST')" data-state-btn="SIGNAL_LOST" class="state-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border border-slate-800 bg-slate-950 hover:bg-slate-800 flex items-center justify-between">
+            <span class="text-amber-400">▲ 信号中断</span>
+            <span class="text-[10px] text-slate-400">过期保留</span>
+          </button>
+          <button onclick="applySimState('CONNECT_FAILED')" data-state-btn="CONNECT_FAILED" class="state-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border border-slate-800 bg-slate-950 hover:bg-slate-800 flex items-center justify-between">
+            <span class="text-rose-400">✕ 连接失败</span>
+            <span class="text-[10px] text-slate-400">异常引导</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. 两位/三位心率与布局防抖动测试 -->
+      <div class="border-t border-slate-800 pt-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">2. 两位 / 三位心率零跳动验证</h2>
+          <span id="bpmSliderReadout" class="text-xs font-bold text-rose-400 mono-num">84 bpm</span>
+        </div>
+        <input id="bpmRangeSlider" type="range" min="48" max="198" value="84" oninput="onManualBpmSlide(this.value)" class="w-full accent-rose-500 cursor-pointer" />
+        <div class="flex gap-1.5 mt-2">
+          <button onclick="setQuickBpm(72)" class="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs mono-num text-slate-200">2位数: 72 bpm</button>
+          <button onclick="setQuickBpm(98)" class="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs mono-num text-slate-200">临界: 98 bpm</button>
+          <button onclick="setQuickBpm(168)" class="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs mono-num text-amber-300">3位数: 168 bpm</button>
+        </div>
+      </div>
+
+      <!-- 3. 桌面背景与半透明可读性检查 -->
+      <div class="border-t border-slate-800 pt-3">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">3. 浅色 / 深色桌面壁纸与透明度</h2>
+        <div class="grid grid-cols-3 gap-1.5 mb-2">
+          <button onclick="setDesktopWallpaper('dark')" id="wpBtnDark" class="py-1.5 px-2 rounded text-xs font-medium bg-sky-600 text-white">深色壁纸</button>
+          <button onclick="setDesktopWallpaper('light')" id="wpBtnLight" class="py-1.5 px-2 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">浅色文档壁纸</button>
+          <button onclick="setDesktopWallpaper('split')" id="wpBtnSplit" class="py-1.5 px-2 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">深浅同屏对比</button>
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-300 mb-1">
+          <span>窗口不透明度 (Alpha)</span>
+          <span id="opacityReadout" class="mono-num font-semibold text-sky-400">100%</span>
+        </div>
+        <input id="opacityRangeSlider" type="range" min="65" max="100" value="100" oninput="setOverlayOpacity(this.value)" class="w-full accent-sky-400 cursor-pointer" />
+      </div>
+
+      <!-- 4. 窗口形态与置顶交互 -->
+      <div class="border-t border-slate-800 pt-3 flex flex-col gap-2">
+        <div class="flex gap-2">
+          <button onclick="toggleOverlayDrawer()" id="sideBtnDrawer" class="flex-1 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200">
+            切换收起 / 展开连接区
+          </button>
+          <button onclick="resetOverlayPosition()" class="py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300">
+            居中复位
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右侧：模拟 Windows 桌面画布（内含极简红心悬浮窗 + 完整悬浮窗） -->
+    <section id="desktopStage" class="flex-1 wallpaper-dark rounded-xl border border-slate-800 relative overflow-hidden min-h-[520px] flex items-center justify-center p-6">
+
+      <!-- 模拟桌面底层干扰文档/代码文字，用于测试半透明叠加时的可读性 -->
+      <div class="absolute inset-0 pointer-events-none p-8 flex flex-col justify-between opacity-80 select-none overflow-hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="p-4 rounded-lg bg-slate-900/40 border border-slate-700/30 backdrop-blur-[1px]">
+            <div class="text-xs font-bold text-slate-400 mb-1">底层深色 IDE 工作区示意 (测试极简胶囊低干扰)</div>
+            <pre class="text-[11px] leading-relaxed mono-num text-slate-400">async def subscribe_hr(client: BleakClient):
+    # UUID 0x2A37 Heart Rate Measurement
+    await client.start_notify(HR_UUID, callback)
+    while client.is_connected:
+        await asyncio.sleep(1.0)</pre>
+          </div>
+          <div class="p-4 rounded-lg bg-white/80 border border-slate-300 text-slate-800 shadow-sm">
+            <div class="text-xs font-bold text-slate-700 mb-1">底层浅色文档窗口示意 (测试浅底对比度)</div>
+            <p class="text-[11px] leading-relaxed text-slate-600">
+              在「极简红心 + 数字」模式下，整个悬浮窗只有一颗高对比红心和右侧数字（仅 136×48px），贴在屏幕角落几乎不占任何视野，鼠标移上去才会显示设置入口。
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] px-3 py-1.5 rounded bg-slate-900/70 text-slate-300 border border-slate-700/50">
+          <span>直接按住「红心胶囊」即可任意拖拽位置 · 鼠标悬停胶囊可浮现设置/关闭图标 · 双击胶囊可打开蓝牙设备选择</span>
+          <span id="stageStatusHint" class="mono-num text-rose-400">当前尺寸: 136 × 48 px (极简红心胶囊)</span>
+        </div>
+      </div>
+
+      <!-- ==================== 形态 A / B：极简「红心 + 数字」悬浮窗 (Mini Heart Pill / HUD) ==================== -->
+      <div id="miniHeartOverlay"
+           ondblclick="setDisplayMode('full')"
+           style="width: 142px; height: 50px; background-color: #11151C; border: 1.5px solid #2E3846; box-shadow: 0 12px 28px rgba(0,0,0,0.5);"
+           class="mini-pill-shell relative z-20 rounded-full flex items-center justify-between px-4 cursor-move select-none transition-all duration-150"
+           title="按住直接拖动位置 · 双击展开蓝牙连接与曲线面板">
+
+        <!-- 左侧：唯一视觉锚点「红心 + 状态角标」 -->
+        <div class="relative flex items-center justify-center w-8 h-8 shrink-0">
+          <svg id="miniHeartSvg" class="w-7 h-7 heart-beating" viewBox="0 0 24 24" fill="#F43F5E" stroke="#FFE4E6" stroke-width="1">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <!-- 状态微角标（仅在扫描中/信号中断/连接失败时出现，保证非单靠颜色也能区分） -->
+          <span id="miniStateBadge"
+                class="hidden absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 border border-slate-600 text-[9px] font-bold flex items-center justify-center leading-none">
+            !
+          </span>
+        </div>
+
+        <!-- 右侧：固定 3 字符等宽大数字（两位数/三位数零跳动） -->
+        <div class="flex items-baseline justify-end flex-1 pr-0.5">
+          <span id="miniBpmValue"
+                style="width: 3ch; display: inline-block; text-align: right; color: #F8FAFC; text-shadow: 0 2px 6px rgba(0,0,0,0.85);"
+                class="mono-num text-[32px] font-bold leading-none tracking-tight">
+            84
+          </span>
+        </div>
+
+        <!-- 鼠标悬停时才浮现的极简操作气泡（平时完全隐藏，做到零干扰） -->
+        <div class="mini-hover-actions absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-slate-700 rounded-full px-2 py-0.5 flex items-center gap-2 shadow-lg whitespace-nowrap">
+          <button onclick="event.stopPropagation(); setDisplayMode('full');" title="展开蓝牙连接与60秒曲线" class="text-[10px] text-sky-400 hover:text-white font-medium">⚙ 连接/曲线</button>
+          <span class="text-slate-600 text-[10px]">|</span>
+          <button onclick="event.stopPropagation(); cycleOverlayOpacityBtn();" id="miniBtnOpacity" title="切换透明度" class="text-[10px] mono-num text-slate-300 hover:text-white">100%</button>
+          <span class="text-slate-600 text-[10px]">|</span>
+          <button onclick="event.stopPropagation(); simulateCloseOverlay();" title="关闭悬浮窗" class="text-[10px] text-slate-400 hover:text-rose-400 font-bold">✕</button>
+        </div>
+      </div>
+
+      <!-- ==================== 形态 C：完整曲线与连接管理悬浮窗 (316px 定宽) ==================== -->
+      <div id="hrOverlayWindow"
+           style="width: 316px; background-color: #11151C; border: 1px solid #2E3846; box-shadow: 0 18px 40px rgba(0,0,0,0.55);"
+           class="hidden relative z-20 rounded-md overflow-hidden transition-opacity duration-150 select-none">
+
+        <!-- A. 顶部拖动栏与控制按钮 (Height: 28px) -->
+        <div id="overlayTitlebar"
+             style="background-color: #171C26; height: 28px;"
+             class="flex items-center justify-between pl-2 pr-1 border-b border-slate-800/80">
+
+          <!-- 专属拖动把手（不与右侧按钮冲突） -->
+          <div id="overlayDragHandle"
+               class="flex items-center gap-2 flex-1 h-full cursor-move pr-2"
+               title="按住拖动悬浮窗位置">
+            <span class="text-slate-400 text-xs font-bold tracking-wider flex items-center gap-1">
+              <span class="text-rose-500">♥</span> GARMIN
+            </span>
+            <!-- 状态胶囊：几何符号 + 文字 + 色彩 -->
+            <span id="uiStatusPill"
+                  style="background-color: #0D2E26; color: #10B981;"
+                  class="px-1.5 py-0.5 rounded text-[11px] font-bold leading-none flex items-center gap-1">
+              ● 实时接收
+            </span>
+          </div>
+
+          <!-- 右侧窗口级操作按钮（含一键切回「♥极简」按钮） -->
+          <div class="flex items-center h-full">
+            <button onclick="setDisplayMode('pill')"
+                    title="切换为只显示「红心 + 数字」的极简模式"
+                    class="h-full px-1.5 text-[11px] text-rose-400 hover:text-white hover:bg-rose-600/30 transition font-semibold">
+              ♥极简
+            </button>
+            <button onclick="cycleOverlayOpacityBtn()"
+                    id="uiBtnOpacity"
+                    title="调节窗口透明度 (100% / 88% / 76%)"
+                    class="h-full px-1.5 text-[11px] mono-num text-slate-400 hover:text-white hover:bg-slate-700/50 transition">
+              100%
+            </button>
+            <button onclick="toggleOverlayPin()"
+                    id="uiBtnPin"
+                    title="切换窗口置顶状态 (Always on Top)"
+                    class="h-full px-1.5 text-[11px] text-slate-100 hover:bg-slate-700/50 transition">
+              📌置顶
+            </button>
+            <button onclick="toggleOverlayDrawer()"
+                    id="uiBtnDrawer"
+                    title="收起或展开蓝牙设备连接区"
+                    class="h-full px-1.5 text-[11px] text-sky-400 hover:text-white hover:bg-slate-700/50 transition font-medium">
+              ▲ 收起
+            </button>
+            <button onclick="simulateCloseOverlay()"
+                    title="关闭心率接收器程序"
+                    class="h-full px-2 text-xs text-slate-400 hover:bg-rose-600 hover:text-white transition font-bold">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- B. 主视图核心心率与次要统计区 (固定高度 64px，2位/3位数字绝不引起布局抖动) -->
+        <div style="height: 64px;" class="px-2.5 pt-1 pb-0.5 flex items-center justify-between">
+          <!-- 左侧：红心 + 3字符定宽数字槽 + bpm 单位 -->
+          <div class="flex items-center" style="width: 150px;">
+            <span id="uiFullHeartIcon" class="text-rose-500 text-2xl mr-1 leading-none">♥</span>
+            <span id="uiBpmValue"
+                  style="width: 3ch; display: inline-block; text-align: right; color: #F8FAFC;"
+                  class="mono-num text-[36px] font-bold leading-none tracking-tight">
+              84
+            </span>
+            <span id="uiBpmUnit"
+                  style="color: #10B981;"
+                  class="text-xs font-bold ml-1.5 mt-3">
+              bpm
+            </span>
+          </div>
+
+          <!-- 右侧：新鲜度 + 60s均值/峰值 + 当前设备名 -->
+          <div class="flex flex-col items-end justify-center text-right overflow-hidden" style="max-width: 146px;">
+            <div id="uiFreshness" style="color: #10B981;" class="text-[11px] font-medium leading-tight truncate w-full">
+              ● 刚刚更新 (&lt;1s)
+            </div>
+            <div id="uiSecondaryStats" style="color: #94A3B8;" class="mono-num text-[11px] leading-tight mt-0.5 truncate w-full">
+              60s 均值  82 · 最高  89
+            </div>
+            <div id="uiDeviceCaption" style="color: #64748B;" class="text-[10px] leading-tight mt-0.5 truncate w-full">
+              设备: Forerunner 265
+            </div>
+          </div>
+        </div>
+
+        <!-- C. 最近 60 秒实时滚动心率曲线 (固定高度 72px) -->
+        <div class="px-2.5 pb-1.5">
+          <div style="background-color: #0C0F14; border: 1px solid #1E2633; height: 72px;" class="rounded-sm relative">
+            <canvas id="uiSparklineCanvas" width="294" height="70" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <!-- D. 可折叠连接管理区 (Drawer) -->
+        <div id="uiConnectionDrawer" class="px-2.5 pb-2.5">
+          <div style="background-color: #171C26; border: 1px solid #263040;" class="p-1.5 rounded-sm flex flex-col gap-1.5">
+
+            <!-- D1. 状态说明 / 错误可操作引导横幅 (固定高度 34px) -->
+            <div id="uiBannerBox"
+                 style="background-color: #1C2330; color: #94A3B8; height: 34px;"
+                 class="px-2 py-1 text-[11px] leading-snug flex items-center rounded-sm overflow-hidden">
+              已连接 Forerunner 265 (0x180D)，可点击顶部「♥极简」切换为红心小胶囊
+            </div>
+
+            <!-- D2. BLE 扫描设备列表 (固定 3 行高度，支持识别 0x180D 与地址后缀) -->
+            <div id="uiDeviceList"
+                 style="background-color: #0E1218; border: 1px solid #283242; height: 62px;"
+                 class="overflow-y-auto mono-num text-[11px] divide-y divide-slate-800/60">
+              <!-- 动态渲染设备行 -->
+            </div>
+
+            <!-- D3. 扫描 / 连接 / 断开按钮组 -->
+            <div class="flex items-center gap-1.5 pt-0.5">
+              <button id="uiBtnScan"
+                      onclick="onUiClickScan()"
+                      style="background-color: #222A38;"
+                      class="px-2.5 py-1 rounded-sm text-[11px] font-semibold text-slate-100 hover:bg-slate-700 transition">
+                ↻ 重新扫描
+              </button>
+              <button id="uiBtnConnect"
+                      onclick="onUiClickConnect()"
+                      style="background-color: #0D9488;"
+                      class="flex-1 py-1 px-2 rounded-sm text-[11px] font-semibold text-white hover:opacity-90 transition text-center">
+                ✓ 已连接 (点击重连)
+              </button>
+              <button id="uiBtnDisconnect"
+                      onclick="onUiClickDisconnect()"
+                      style="background-color: #222A38;"
+                      class="px-2.5 py-1 rounded-sm text-[11px] text-slate-300 hover:bg-rose-600 hover:text-white transition">
+                断开
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 关闭后的恢复提示浮层 -->
+      <div id="closedToast" class="hidden absolute z-30 bg-slate-900/95 border border-slate-700 rounded-xl p-5 text-center shadow-2xl max-w-xs">
+        <p class="text-sm font-semibold text-slate-100 mb-1">悬浮窗已关闭</p>
+        <p class="text-xs text-slate-400 mb-3">点击下方按钮重新唤起极简心率悬浮窗。</p>
+        <button onclick="restoreClosedOverlay()" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white">
+          重新启动悬浮窗
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ==================== 视图 2：极简「红心 + 数字」方案对比稿 ==================== -->
+  <section id="viewMinimalSpec" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="text-base font-semibold text-slate-100">极简「红心 + 数字」悬浮窗 · 三种轻量形态与状态表达规范</h2>
+        <p class="text-xs text-slate-400">连接成功后自动缩成「左边一颗红心 + 右边数字」，平时隐藏所有按钮；通过红心颜色 + 微角标区分全部连接状态，两位数与三位数宽度严格一致。</p>
+      </div>
+      <span class="text-xs mono-num px-2.5 py-1 rounded bg-rose-950/60 border border-rose-500/30 text-rose-300">
+        最小占地仅 136 × 48 px (不到屏幕面积的 0.3%)
+      </span>
+    </div>
+
+    <!-- 3种极简形态对比 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- 方案 A -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-rose-400">方案 A · 极简圆角胶囊 (推荐默认)</span>
+            <span class="text-[11px] mono-num text-slate-400">136 × 48 px</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-5">
+            深炭黑胶囊底板 (#11151C) + 1.5px 描边 (#2E3846)，只保留左侧红心与右侧等宽数字。不管桌面是纯白文档还是深色代码，对比度始终清晰。
+          </p>
+        </div>
+        <div class="h-28 rounded-lg wallpaper-split flex items-center justify-center border border-slate-800">
+          <div style="width: 136px; height: 48px; background-color: #11151C; border: 1.5px solid #2E3846; box-shadow: 0 10px 24px rgba(0,0,0,0.45);"
+               class="rounded-full flex items-center justify-between px-4">
+            <span class="text-rose-500 text-2xl leading-none">♥</span>
+            <span class="mono-num text-[30px] font-bold text-slate-50 leading-none" style="width: 3ch; text-align: right;">86</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 方案 B -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-sky-400">方案 B · 纯透无框贴片 (HUD 水印模式)</span>
+            <span class="text-[11px] mono-num text-slate-400">124 × 44 px</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-5">
+            彻底去掉背景框，仅在桌面上悬浮一颗带深色外发光描边的红心和粗体描边数字，视觉存在感降到最低，适合全屏看视频或写代码时挂在角落。
+          </p>
+        </div>
+        <div class="h-28 rounded-lg wallpaper-split flex items-center justify-center border border-slate-800">
+          <div style="width: 124px; height: 44px;" class="flex items-center justify-between px-3">
+            <span class="text-rose-500 text-2xl leading-none" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9));">♥</span>
+            <span class="mono-num text-[32px] font-bold text-white leading-none" style="width: 3ch; text-align: right; text-shadow: 0 2px 6px #000, 0 0 2px #000;">152</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 方案 C -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-emerald-400">方案 C · 红心 + 数字 + 迷你心电尾迹</span>
+            <span class="text-[11px] mono-num text-slate-400">196 × 48 px</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-5">
+            在「红心 + 数字」右侧顺带附一条 48px 宽的极简近期波动尾迹线，不显示刻度与文字，既保持单行胶囊小巧，又能一眼看出心率是在爬升还是回落。
+          </p>
+        </div>
+        <div class="h-28 rounded-lg wallpaper-split flex items-center justify-center border border-slate-800">
+          <div style="width: 196px; height: 48px; background-color: #11151C; border: 1.5px solid #2E3846; box-shadow: 0 10px 24px rgba(0,0,0,0.45);"
+               class="rounded-full flex items-center justify-between px-3.5 gap-2">
+            <span class="text-rose-500 text-2xl leading-none">♥</span>
+            <span class="mono-num text-[28px] font-bold text-slate-50 leading-none" style="width: 3ch; text-align: right;">138</span>
+            <svg width="54" height="24" viewBox="0 0 54 24" class="shrink-0">
+              <polyline fill="none" stroke="#10B981" stroke-width="2" points="2,18 10,16 18,19 26,12 34,14 42,7 50,5"/>
+              <circle cx="50" cy="5" r="2.5" fill="#10B981" stroke="#fff" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 极简红心模式下的 6 种核心状态视觉区分表 -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <h3 class="text-sm font-semibold text-slate-100 mb-3">极简模式下如何不靠文字区分状态？（心形样式 + 微角标 + 右侧槽位）</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <!-- 1. 实时 2位数 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col items-center gap-2">
+          <span class="text-[11px] text-slate-400">1. 实时接收 (2位数)</span>
+          <div style="width: 132px; height: 46px; background-color: #11151C; border: 1.5px solid #2E3846;" class="rounded-full flex items-center justify-between px-3.5">
+            <span class="text-rose-500 text-2xl">♥</span>
+            <span class="mono-num text-[28px] font-bold text-slate-50" style="width: 3ch; text-align: right;">76</span>
+          </div>
+          <span class="text-[10px] text-emerald-400">实心鲜红心 + 白色数字</span>
+        </div>
+
+        <!-- 2. 实时 3位数 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col items-center gap-2">
+          <span class="text-[11px] text-slate-400">2. 实时接收 (3位数零跳动)</span>
+          <div style="width: 132px; height: 46px; background-color: #11151C; border: 1.5px solid #2E3846;" class="rounded-full flex items-center justify-between px-3.5">
+            <span class="text-rose-500 text-2xl">♥</span>
+            <span class="mono-num text-[28px] font-bold text-slate-50" style="width: 3ch; text-align: right;">168</span>
+          </div>
+          <span class="text-[10px] text-emerald-400">胶囊宽度 132px 纹丝不动</span>
+        </div>
+
+        <!-- 3. 信号中断/数据过期 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col items-center gap-2">
+          <span class="text-[11px] text-slate-400">3. 信号中断 (保留旧值)</span>
+          <div style="width: 132px; height: 46px; background-color: #11151C; border: 1.5px solid #78350F;" class="rounded-full flex items-center justify-between px-3.5">
+            <div class="relative">
+              <span class="text-amber-500 text-2xl">♥</span>
+              <span class="absolute -bottom-1 -right-1.5 text-[9px] bg-amber-950 text-amber-300 border border-amber-500 rounded-full px-1 leading-tight">!</span>
+            </div>
+            <span class="mono-num text-[28px] font-bold text-amber-400" style="width: 3ch; text-align: right;">144</span>
+          </div>
+          <span class="text-[10px] text-amber-400">琥珀黄心 + 感叹角标 + 保留值</span>
+        </div>
+
+        <!-- 4. 扫描中/连接中 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col items-center gap-2">
+          <span class="text-[11px] text-slate-400">4. 扫描 / 连接手表中</span>
+          <div style="width: 132px; height: 46px; background-color: #11151C; border: 1.5px solid #0369A1;" class="rounded-full flex items-center justify-between px-3.5">
+            <div class="relative">
+              <span class="text-sky-400 text-2xl">♡</span>
+              <span class="absolute -bottom-1 -right-1.5 text-[9px] bg-sky-950 text-sky-300 border border-sky-400 rounded-full px-1 leading-tight">◎</span>
+            </div>
+            <span class="mono-num text-[24px] font-bold text-sky-400" style="width: 3ch; text-align: right;">···</span>
+          </div>
+          <span class="text-[10px] text-sky-400">青蓝空心 + 雷达角标</span>
+        </div>
+
+        <!-- 5. 未连接 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col items-center gap-2">
+          <span class="text-[11px] text-slate-400">5. 未连接 (待机占位)</span>
+          <div style="width: 132px; height: 46px; background-color: #11151C; border: 1.5px solid #2E3846;" class="rounded-full flex items-center justify-between px-3.5">
+            <span class="text-slate-500 text-2xl">♡</span>
+            <span class="mono-num text-[26px] font-bold text-slate-500" style="width: 3ch; text-align: right;">--</span>
+          </div>
+          <span class="text-[10px] text-slate-400">灰色空心 ♡ + 双横线占位</span>
+        </div>
+
+        <!-- 6. 连接失败 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col items-center gap-2">
+          <span class="text-[11px] text-slate-400">6. 连接失败 (点击重连)</span>
+          <div style="width: 132px; height: 46px; background-color: #11151C; border: 1.5px solid #881337;" class="rounded-full flex items-center justify-between px-3.5">
+            <div class="relative">
+              <span class="text-rose-500 text-2xl">♡</span>
+              <span class="absolute -bottom-1 -right-1.5 text-[9px] bg-rose-950 text-rose-300 border border-rose-500 rounded-full px-1 leading-tight">✕</span>
+            </div>
+            <span class="mono-num text-[20px] font-bold text-rose-400" style="width: 3ch; text-align: right;">ERR</span>
+          </div>
+          <span class="text-[10px] text-rose-400">红框空心 + ✕ 角标 (双击展开)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 视图 3：标准 9 态视觉稿矩阵 ==================== -->
+  <section id="viewSpecGrid" class="hidden flex-1 max-w-7xl w-full mx-auto p-4">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="text-base font-semibold text-slate-100">展开/设置模式 · 全状态视觉设计稿矩阵 (9 张完整状态规格)</h2>
+        <p class="text-xs text-slate-400">当用户双击极简红心胶囊或首次启动选设备时展开此面板，连上后自动缩回「红心 + 数字」胶囊。</p>
+      </div>
+      <span class="text-xs mono-num px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
+        极简态 136×48px · 曲线态 316×176px · 展开连接态 316×336px
+      </span>
+    </div>
+    <div id="specCardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      <!-- 由 JS 自动渲染 9 张标准状态卡 -->
+    </div>
+  </section>
+
+  <!-- ==================== 视图 4：设计规范说明 ==================== -->
+  <section id="viewBuildDoc" class="hidden flex-1 max-w-5xl w-full mx-auto p-4 space-y-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+      <h2 class="text-base font-semibold text-slate-100">「极简红心 + 数字」模式交互闭环说明</h2>
+      <ul class="text-xs text-slate-300 space-y-2 leading-relaxed">
+        <li>• <strong>连接后自动缩为极简胶囊：</strong>首次打开程序或未连接时展示设备扫描面板；一旦选定 Forerunner 265 并成功收到 <code class="mono-num text-rose-400">0x2A37</code> 心率通知，窗口自动收缩为 <code class="mono-num text-rose-400">136 × 48 px</code> 的「左边红心 + 右边数字」胶囊。</li>
+        <li>• <strong>零按钮干扰 + 悬停/双击唤起：</strong>日常挂在桌面上时没有任何多余按钮或文字标签；直接按住胶囊任意位置即可拖动，鼠标悬停时顶部浮现微型「连接/曲线 | 透明度 | ✕」，或直接双击胶囊切回完整面板。</li>
+        <li>• <strong>两位数与三位数绝对稳固：</strong>右侧数字区锁定 <code class="mono-num">3ch</code> 等宽右对齐槽位，无论是静息 <code class="mono-num">68</code> 还是冲刺 <code class="mono-num">175</code>，红心与胶囊外框不发生 1 像素抖动。</li>
+      </ul>
+    </div>
+  </section>
+
+  <script>
+    // =========================================================================
+    // 1. 状态配置表与模拟设备数据
+    // =========================================================================
+    const STATE_META = {
+      DISCONNECTED: {
+        glyph: '○', label: '未连接', fg: '#94A3B8', bg: '#1E2530',
+        freshness: '○ 暂无实时数据', freshColor: '#64748B',
+        banner: '在手表开启「广播心率」，点击下方「扫描设备」搜索手表', bannerColor: '#94A3B8',
+        scanText: '↻ 扫描设备', scanDisabled: false,
+        connText: '连接所选手表', connBg: '#0284C7'
+      },
+      SCANNING: {
+        glyph: '◎', label: '扫描中…', fg: '#38BDF8', bg: '#122B3D',
+        freshness: '◎ 正在扫描 BLE 广播…', freshColor: '#38BDF8',
+        banner: '正在搜索附近的蓝牙低功耗 (BLE) 设备，优先识别 0x180D…', bannerColor: '#38BDF8',
+        scanText: '◎ 扫描中…', scanDisabled: true,
+        connText: '等待扫描结果', connBg: '#334155'
+      },
+      DEVICES_FOUND: {
+        glyph: '●', label: '发现设备', fg: '#38BDF8', bg: '#122B3D',
+        freshness: '○ 待连接所选手表', freshColor: '#94A3B8',
+        banner: '发现 3 台设备（已优先标记 [心率 0x180D]），请选择并点击连接', bannerColor: '#E2E8F0',
+        scanText: '↻ 重新扫描', scanDisabled: false,
+        connText: '连接所选手表', connBg: '#0284C7'
+      },
+      CONNECTING: {
+        glyph: '◔', label: '连接中…', fg: '#38BDF8', bg: '#122B3D',
+        freshness: '◔ 正在订阅 0x2A37…', freshColor: '#38BDF8',
+        banner: '正在与 Forerunner 265 握手并订阅标准心率通知 (0x2A37)…', bannerColor: '#38BDF8',
+        scanText: '↻ 重新扫描', scanDisabled: true,
+        connText: '正在握手…', connBg: '#0369A1'
+      },
+      LIVE: {
+        glyph: '●', label: '实时接收', fg: '#10B981', bg: '#0D2E26',
+        freshness: '● 刚刚更新 (<1s)', freshColor: '#10B981',
+        banner: '已连接 Forerunner 265 (0x180D)，可点击顶部「♥极简」切回红心小胶囊', bannerColor: '#94A3B8',
+        scanText: '↻ 重新扫描', scanDisabled: false,
+        connText: '✓ 已连接 (点击重连)', connBg: '#0D9488'
+      },
+      SIGNAL_LOST: {
+        glyph: '▲', label: '信号中断', fg: '#F59E0B', bg: '#33240C',
+        freshness: '▲ 数据已过期 (14s 前)', freshColor: '#F59E0B',
+        banner: '超 5 秒未收到心率广播，保留最后数值；请靠近电脑或点击重新连接', bannerColor: '#F59E0B',
+        scanText: '↻ 重新扫描', scanDisabled: false,
+        connText: '↻ 重新连接手表', connBg: '#D97706'
+      },
+      CONNECT_FAILED: {
+        glyph: '✕', label: '连接失败', fg: '#F43F5E', bg: '#361520',
+        freshness: '✕ 未能建立心率订阅', freshColor: '#F43F5E',
+        banner: '握手超时或设备未开启心率广播 (0x2A37)，请确认手表设置后重试', bannerColor: '#F43F5E',
+        scanText: '↻ 重新扫描', scanDisabled: false,
+        connText: '↻ 重试连接', connBg: '#E11D48'
+      }
+    };
+
+    const MOCK_DEVICES = [
+      { id: 'D4:7A:E2:19:04:8B', name: 'Forerunner 265', suffix: '04:8B', hasHr: true, rssi: -54 },
+      { id: 'C1:09:4F:88:3A:12', name: 'HRM-Pro Plus', suffix: '3A:12', hasHr: true, rssi: -68 },
+      { id: '7E:33:1B:90:CC:41', name: '', suffix: 'CC:41', hasHr: false, rssi: -82 }
+    ];
+
+    let appState = {
+      displayMode: 'pill', // 'pill' (极简红心胶囊) | 'hud' (纯透贴片) | 'full' (完整曲线面板)
+      stateKey: 'LIVE',
+      currentBpm: 84,
+      drawerExpanded: true,
+      isTopmost: true,
+      opacity: 100,
+      selectedDeviceIdx: 0,
+      history: []
+    };
+
+    function seedHistory(baseBpm, count = 60) {
+      const arr = [];
+      for (let i = 0; i < count; i++) {
+        const wave = Math.round(5 * Math.sin(i * 0.22) + (i % 4 === 0 ? 2 : -1));
+        arr.push(Math.max(45, Math.min(210, baseBpm + wave)));
+      }
+      return arr;
+    }
+
+    appState.history = seedHistory(84, 60);
+
+    // =========================================================================
+    // 2. 切换显示模式 (极简红心胶囊 vs 纯透贴片 vs 完整曲线窗)
+    // =========================================================================
+    function setDisplayMode(mode) {
+      appState.displayMode = mode;
+      const miniEl = document.getElementById('miniHeartOverlay');
+      const fullEl = document.getElementById('hrOverlayWindow');
+      const descEl = document.getElementById('modeDescText');
+
+      const btnPill = document.getElementById('modeBtnPill');
+      const btnHud = document.getElementById('modeBtnHud');
+      const btnFull = document.getElementById('modeBtnFull');
+
+      [btnPill, btnHud, btnFull].forEach(b => {
+        b.className = 'py-1.5 px-2 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700';
+      });
+
+      if (mode === 'pill') {
+        btnPill.className = 'py-1.5 px-2 rounded text-xs font-semibold bg-rose-600 text-white shadow';
+        miniEl.classList.remove('hidden');
+        fullEl.classList.add('hidden');
+        miniEl.style.backgroundColor = '#11151C';
+        miniEl.style.border = '1.5px solid #2E3846';
+        miniEl.style.boxShadow = '0 12px 28px rgba(0,0,0,0.5)';
+        descEl.innerHTML = '当前：<strong class="text-slate-200">极简红心胶囊 (136×48px)</strong> — 仅显示左侧红心与右侧大号数字；鼠标悬停时才浮现展开/透明度/关闭小按钮。';
+      } else if (mode === 'hud') {
+        btnHud.className = 'py-1.5 px-2 rounded text-xs font-semibold bg-rose-600 text-white shadow';
+        miniEl.classList.remove('hidden');
+        fullEl.classList.add('hidden');
+        miniEl.style.backgroundColor = 'transparent';
+        miniEl.style.border = '1.5px solid transparent';
+        miniEl.style.boxShadow = 'none';
+        descEl.innerHTML = '当前：<strong class="text-slate-200">纯透无框贴片 (HUD 模式)</strong> — 去掉背景框，仅悬浮带深色阴影轮廓的红心与数字，彻底融入桌面壁纸。';
+      } else {
+        btnFull.className = 'py-1.5 px-2 rounded text-xs font-semibold bg-sky-600 text-white shadow';
+        miniEl.classList.add('hidden');
+        fullEl.classList.remove('hidden');
+        descEl.innerHTML = '当前：<strong class="text-slate-200">完整曲线与连接窗 (316px)</strong> — 包含 60 秒心率曲线与蓝牙设备列表，点击窗口顶部「♥极简」可随时缩回红心胶囊。';
+      }
+
+      renderInteractiveOverlay();
+    }
+
+    // =========================================================================
+    // 3. 渲染主交互悬浮窗 (同时更新极简红心胶囊与完整窗口)
+    // =========================================================================
+    function renderInteractiveOverlay() {
+      const meta = STATE_META[appState.stateKey];
+
+      // ---- 3A. 更新极简「红心 + 数字」悬浮窗 ----
+      const miniHeartSvg = document.getElementById('miniHeartSvg');
+      const miniBadge = document.getElementById('miniStateBadge');
+      const miniBpmVal = document.getElementById('miniBpmValue');
+      const miniShell = document.getElementById('miniHeartOverlay');
+
+      if (appState.stateKey === 'LIVE') {
+        miniHeartSvg.setAttribute('fill', '#F43F5E');
+        miniHeartSvg.setAttribute('stroke', '#FFE4E6');
+        miniHeartSvg.classList.add('heart-beating');
+        miniBadge.classList.add('hidden');
+        miniBpmVal.textContent = String(appState.currentBpm);
+        miniBpmVal.style.color = '#F8FAFC';
+        if (appState.displayMode === 'pill') miniShell.style.borderColor = '#2E3846';
+      } else if (appState.stateKey === 'SIGNAL_LOST') {
+        miniHeartSvg.setAttribute('fill', '#F59E0B');
+        miniHeartSvg.setAttribute('stroke', '#FEF3C7');
+        miniHeartSvg.classList.remove('heart-beating');
+        miniBadge.classList.remove('hidden');
+        miniBadge.textContent = '!';
+        miniBadge.className = 'absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-950 border border-amber-400 text-amber-300 text-[9px] font-bold flex items-center justify-center leading-none';
+        miniBpmVal.textContent = String(appState.currentBpm);
+        miniBpmVal.style.color = '#FBBF24';
+        if (appState.displayMode === 'pill') miniShell.style.borderColor = '#92400E';
+      } else if (appState.stateKey === 'SCANNING' || appState.stateKey === 'CONNECTING' || appState.stateKey === 'DEVICES_FOUND') {
+        miniHeartSvg.setAttribute('fill', 'none');
+        miniHeartSvg.setAttribute('stroke', '#38BDF8');
+        miniHeartSvg.setAttribute('stroke-width', '2');
+        miniHeartSvg.classList.remove('heart-beating');
+        miniBadge.classList.remove('hidden');
+        miniBadge.textContent = '◎';
+        miniBadge.className = 'absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-sky-950 border border-sky-400 text-sky-300 text-[9px] font-bold flex items-center justify-center leading-none';
+        miniBpmVal.textContent = '···';
+        miniBpmVal.style.color = '#38BDF8';
+        if (appState.displayMode === 'pill') miniShell.style.borderColor = '#0369A1';
+      } else if (appState.stateKey === 'CONNECT_FAILED') {
+        miniHeartSvg.setAttribute('fill', 'none');
+        miniHeartSvg.setAttribute('stroke', '#F43F5E');
+        miniHeartSvg.setAttribute('stroke-width', '2');
+        miniHeartSvg.classList.remove('heart-beating');
+        miniBadge.classList.remove('hidden');
+        miniBadge.textContent = '✕';
+        miniBadge.className = 'absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-rose-950 border border-rose-400 text-rose-300 text-[9px] font-bold flex items-center justify-center leading-none';
+        miniBpmVal.textContent = 'ERR';
+        miniBpmVal.style.color = '#FB7185';
+        if (appState.displayMode === 'pill') miniShell.style.borderColor = '#9F1239';
+      } else {
+        // DISCONNECTED
+        miniHeartSvg.setAttribute('fill', 'none');
+        miniHeartSvg.setAttribute('stroke', '#64748B');
+        miniHeartSvg.setAttribute('stroke-width', '2');
+        miniHeartSvg.classList.remove('heart-beating');
+        miniBadge.classList.add('hidden');
+        miniBpmVal.textContent = '--';
+        miniBpmVal.style.color = '#64748B';
+        if (appState.displayMode === 'pill') miniShell.style.borderColor = '#2E3846';
+      }
+
+      // ---- 3B. 更新完整窗口 ----
+      const pill = document.getElementById('uiStatusPill');
+      pill.textContent = `${meta.glyph} ${meta.label}`;
+      pill.style.color = meta.fg;
+      pill.style.backgroundColor = meta.bg;
+
+      const bpmValEl = document.getElementById('uiBpmValue');
+      const bpmUnitEl = document.getElementById('uiBpmUnit');
+      const fullHeartEl = document.getElementById('uiFullHeartIcon');
+      const freshEl = document.getElementById('uiFreshness');
+      const statsEl = document.getElementById('uiSecondaryStats');
+      const devCapEl = document.getElementById('uiDeviceCaption');
+
+      if (appState.stateKey === 'LIVE') {
+        bpmValEl.textContent = String(appState.currentBpm);
+        bpmValEl.style.color = '#F8FAFC';
+        bpmUnitEl.style.color = '#10B981';
+        fullHeartEl.style.color = '#F43F5E';
+      } else if (appState.stateKey === 'SIGNAL_LOST') {
+        bpmValEl.textContent = String(appState.currentBpm);
+        bpmValEl.style.color = '#F59E0B';
+        bpmUnitEl.style.color = '#F59E0B';
+        fullHeartEl.style.color = '#F59E0B';
+      } else {
+        bpmValEl.textContent = '---';
+        bpmValEl.style.color = '#64748B';
+        bpmUnitEl.style.color = '#64748B';
+        fullHeartEl.style.color = '#64748B';
+      }
+
+      freshEl.textContent = meta.freshness;
+      freshEl.style.color = meta.freshColor;
+
+      if ((appState.stateKey === 'LIVE' || appState.stateKey === 'SIGNAL_LOST') && appState.history.length > 0) {
+        const sum = appState.history.reduce((a, b) => a + b, 0);
+        const avg = Math.round(sum / appState.history.length);
+        const max = Math.max(...appState.history);
+        statsEl.textContent = `60s 均值 ${String(avg).padStart(3, ' ')} · 最高 ${String(max).padStart(3, ' ')}`;
+        statsEl.style.color = '#94A3B8';
+      } else {
+        statsEl.textContent = '60s 均值 --- · 最高 ---';
+        statsEl.style.color = '#64748B';
+      }
+
+      const selDev = MOCK_DEVICES[appState.selectedDeviceIdx] || MOCK_DEVICES[0];
+      const devLabel = (appState.stateKey === 'DISCONNECTED' || appState.stateKey === 'SCANNING')
+        ? '尚未选择'
+        : (selDev.name || `未知设备 (${selDev.suffix})`);
+      devCapEl.textContent = `设备: ${devLabel}`;
+
+      const drawer = document.getElementById('uiConnectionDrawer');
+      const btnDrawer = document.getElementById('uiBtnDrawer');
+      const stageHint = document.getElementById('stageStatusHint');
+      if (appState.displayMode === 'pill') {
+        stageHint.textContent = '当前尺寸: 136 × 48 px (极简红心胶囊 · 悬停显示控制)';
+      } else if (appState.displayMode === 'hud') {
+        stageHint.textContent = '当前尺寸: 124 × 44 px (纯透无框贴片 HUD)';
+      } else if (appState.drawerExpanded) {
+        drawer.classList.remove('hidden');
+        btnDrawer.textContent = '▲ 收起';
+        stageHint.textContent = '当前尺寸: 316 × 336 px (完整曲线 + 蓝牙连接区)';
+      } else {
+        drawer.classList.add('hidden');
+        btnDrawer.textContent = '▼ 连接';
+        stageHint.textContent = '当前尺寸: 316 × 176 px (收起连接区 · 保留曲线)';
+      }
+
+      const bannerBox = document.getElementById('uiBannerBox');
+      bannerBox.textContent = meta.banner;
+      bannerBox.style.color = meta.bannerColor;
+
+      const listEl = document.getElementById('uiDeviceList');
+      listEl.innerHTML = '';
+      if (appState.stateKey === 'DISCONNECTED' || appState.stateKey === 'SCANNING') {
+        const emptyRow = document.createElement('div');
+        emptyRow.className = 'h-full flex items-center justify-center text-slate-500 text-[11px]';
+        emptyRow.textContent = appState.stateKey === 'SCANNING' ? '正在搜索广播 0x180D 的蓝牙设备…' : '列表为空，请点击左下角「扫描设备」';
+        listEl.appendChild(emptyRow);
+      } else {
+        MOCK_DEVICES.forEach((d, idx) => {
+          const row = document.createElement('div');
+          const isSelected = idx === appState.selectedDeviceIdx;
+          row.className = `px-2 py-1 flex items-center justify-between cursor-pointer ${isSelected ? 'bg-sky-900/60 text-white' : 'text-slate-300 hover:bg-slate-800/60'}`;
+          const displayName = d.name ? d.name : `未知设备 (${d.suffix})`;
+          const badge = d.hasHr ? '[心率 0x180D]' : `[${d.suffix}]`;
+          row.innerHTML = `<span class="truncate pr-2">${displayName}</span><span class="${d.hasHr ? 'text-sky-400' : 'text-slate-500'} shrink-0">${badge}</span>`;
+          row.onclick = () => {
+            appState.selectedDeviceIdx = idx;
+            renderInteractiveOverlay();
+          };
+          listEl.appendChild(row);
+        });
+      }
+
+      const btnScan = document.getElementById('uiBtnScan');
+      btnScan.textContent = meta.scanText;
+      btnScan.disabled = meta.scanDisabled;
+      btnScan.style.opacity = meta.scanDisabled ? '0.5' : '1';
+
+      const btnConn = document.getElementById('uiBtnConnect');
+      btnConn.textContent = meta.connText;
+      btnConn.style.backgroundColor = meta.connBg;
+
+      document.querySelectorAll('.state-btn').forEach(btn => {
+        if (btn.getAttribute('data-state-btn') === appState.stateKey) {
+          btn.classList.add('ring-2', 'ring-sky-400');
+        } else {
+          btn.classList.remove('ring-2', 'ring-sky-400');
+        }
+      });
+
+      const canvas = document.getElementById('uiSparklineCanvas');
+      drawSparklineOnCanvas(canvas, appState.stateKey, appState.history);
+    }
+
+    // =========================================================================
+    // 4. 通用 60 秒心率曲线绘制器
+    // =========================================================================
+    function drawSparklineOnCanvas(canvas, stateKey, series) {
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 28, padR = 8, padT = 8, padB = 16;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      ctx.strokeStyle = '#1E2633';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      [0, 0.5, 1].forEach(frac => {
+        const y = Math.round(padT + frac * plotH) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(w - padR, y);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#64748B';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('-60s', padL, h - 4);
+      ctx.textAlign = 'center';
+      ctx.fillText('-30s', padL + plotW / 2, h - 4);
+      ctx.textAlign = 'right';
+      ctx.fillText('现在', w - padR, h - 4);
+
+      const hasData = (stateKey === 'LIVE' || stateKey === 'SIGNAL_LOST') && series && series.length >= 2;
+      if (!hasData) {
+        ctx.fillStyle = '#64748B';
+        ctx.font = '11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        const emptyMsg = (stateKey === 'SCANNING' || stateKey === 'CONNECTING' || stateKey === 'DEVICES_FOUND')
+          ? '正在等待手表心率广播数据 (0x2A37)…'
+          : '最近 60 秒暂无心率曲线数据';
+        ctx.fillText(emptyMsg, padL + plotW / 2, padT + plotH / 2 + 4);
+        return;
+      }
+
+      const minVal = Math.min(...series);
+      const maxVal = Math.max(...series);
+      let yMin = Math.max(40, Math.floor((minVal - 6) / 5) * 5);
+      let yMax = Math.min(230, Math.ceil((maxVal + 6) / 5) * 5);
+      if (yMax - yMin < 20) {
+        const mid = Math.round((yMax + yMin) / 2);
+        yMin = mid - 10;
+        yMax = mid + 10;
+      }
+
+      ctx.fillStyle = '#64748B';
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(String(yMax), padL - 4, padT + 7);
+      ctx.fillText(String(yMin), padL - 4, padT + plotH);
+
+      const effectiveSpan = stateKey === 'SIGNAL_LOST' ? 0.82 : 1.0;
+      const pts = series.map((val, idx) => {
+        const xRatio = (idx / Math.max(1, series.length - 1)) * effectiveSpan;
+        const yRatio = (val - yMin) / Math.max(1, yMax - yMin);
+        return {
+          x: padL + xRatio * plotW,
+          y: padT + plotH - yRatio * plotH
+        };
+      });
+
+      const strokeColor = stateKey === 'SIGNAL_LOST' ? '#F59E0B' : '#10B981';
+      const fillTop = stateKey === 'SIGNAL_LOST' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)';
+
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      grad.addColorStop(0, fillTop);
+      grad.addColorStop(1, 'rgba(12, 15, 20, 0.0)');
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, padT + plotH);
+      pts.forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.lineTo(pts[pts.length - 1].x, padT + plotH);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.beginPath();
+      pts.forEach((p, idx) => {
+        if (idx === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const last = pts[pts.length - 1];
+      ctx.beginPath();
+      ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = strokeColor;
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.stroke();
+    }
+
+    // =========================================================================
+    // 5. 交互控制处理函数
+    // =========================================================================
+    function applySimState(newState) {
+      appState.stateKey = newState;
+      if (newState === 'LIVE') {
+        appState.history = seedHistory(appState.currentBpm, 60);
+      } else if (newState === 'SIGNAL_LOST') {
+        appState.history = seedHistory(appState.currentBpm, 48);
+      }
+      renderInteractiveOverlay();
+    }
+
+    function onManualBpmSlide(val) {
+      const bpm = parseInt(val, 10);
+      appState.currentBpm = bpm;
+      document.getElementById('bpmSliderReadout').textContent = `${bpm} bpm`;
+      if (appState.stateKey !== 'LIVE' && appState.stateKey !== 'SIGNAL_LOST') {
+        appState.stateKey = 'LIVE';
+      }
+      appState.history.push(bpm);
+      if (appState.history.length > 60) appState.history.shift();
+      renderInteractiveOverlay();
+    }
+
+    function setQuickBpm(bpm) {
+      document.getElementById('bpmRangeSlider').value = bpm;
+      appState.currentBpm = bpm;
+      document.getElementById('bpmSliderReadout').textContent = `${bpm} bpm`;
+      appState.stateKey = 'LIVE';
+      appState.history = seedHistory(bpm, 60);
+      renderInteractiveOverlay();
+    }
+
+    function setDesktopWallpaper(mode) {
+      const stage = document.getElementById('desktopStage');
+      stage.classList.remove('wallpaper-dark', 'wallpaper-light', 'wallpaper-split');
+      stage.classList.add(`wallpaper-${mode}`);
+
+      ['Dark', 'Light', 'Split'].forEach(k => {
+        const btn = document.getElementById(`wpBtn${k}`);
+        if (k.toLowerCase() === mode) {
+          btn.className = 'py-1.5 px-2 rounded text-xs font-medium bg-sky-600 text-white';
+        } else {
+          btn.className = 'py-1.5 px-2 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+    }
+
+    function setOverlayOpacity(val) {
+      appState.opacity = parseInt(val, 10);
+      const opStr = (appState.opacity / 100).toFixed(2);
+      document.getElementById('hrOverlayWindow').style.opacity = opStr;
+      document.getElementById('miniHeartOverlay').style.opacity = opStr;
+      document.getElementById('opacityReadout').textContent = `${appState.opacity}%`;
+      document.getElementById('uiBtnOpacity').textContent = `${appState.opacity}%`;
+      document.getElementById('miniBtnOpacity').textContent = `${appState.opacity}%`;
+    }
+
+    function cycleOverlayOpacityBtn() {
+      const levels = [100, 88, 76];
+      const curIdx = levels.indexOf(appState.opacity);
+      const nextVal = levels[(curIdx + 1) % levels.length];
+      document.getElementById('opacityRangeSlider').value = nextVal;
+      setOverlayOpacity(nextVal);
+    }
+
+    function toggleOverlayPin() {
+      appState.isTopmost = !appState.isTopmost;
+      const btn = document.getElementById('uiBtnPin');
+      btn.textContent = appState.isTopmost ? '📌置顶' : '📍普通';
+      btn.style.color = appState.isTopmost ? '#F8FAFC' : '#64748B';
+    }
+
+    function toggleOverlayDrawer() {
+      if (appState.displayMode !== 'full') {
+        setDisplayMode('full');
+        appState.drawerExpanded = true;
+      } else {
+        appState.drawerExpanded = !appState.drawerExpanded;
+      }
+      renderInteractiveOverlay();
+    }
+
+    function onUiClickScan() {
+      applySimState('SCANNING');
+      setTimeout(() => {
+        if (appState.stateKey === 'SCANNING') {
+          applySimState('DEVICES_FOUND');
+        }
+      }, 900);
+    }
+
+    function onUiClickConnect() {
+      const sel = MOCK_DEVICES[appState.selectedDeviceIdx];
+      applySimState('CONNECTING');
+      setTimeout(() => {
+        if (appState.stateKey === 'CONNECTING') {
+          if (sel && !sel.hasHr) {
+            applySimState('CONNECT_FAILED');
+          } else {
+            applySimState('LIVE');
+          }
+        }
+      }, 750);
+    }
+
+    function onUiClickDisconnect() {
+      applySimState('DISCONNECTED');
+    }
+
+    function simulateCloseOverlay() {
+      document.getElementById('hrOverlayWindow').classList.add('hidden');
+      document.getElementById('miniHeartOverlay').classList.add('hidden');
+      document.getElementById('closedToast').classList.remove('hidden');
+    }
+
+    function restoreClosedOverlay() {
+      document.getElementById('closedToast').classList.add('hidden');
+      setDisplayMode(appState.displayMode);
+    }
+
+    function resetOverlayPosition() {
+      dragOffset = { x: 0, y: 0 };
+      document.getElementById('hrOverlayWindow').style.transform = 'translate(0px, 0px)';
+      document.getElementById('miniHeartOverlay').style.transform = 'translate(0px, 0px)';
+    }
+
+    // 拖动逻辑：极简胶囊整体可拖动，完整窗口顶部把手可拖动
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let dragOffset = { x: 0, y: 0 };
+
+    function startDrag(e) {
+      if (e.target.tagName.toLowerCase() === 'button') return;
+      isDragging = true;
+      dragStart.x = e.clientX - dragOffset.x;
+      dragStart.y = e.clientY - dragOffset.y;
+    }
+
+    document.getElementById('overlayDragHandle').addEventListener('mousedown', startDrag);
+    document.getElementById('miniHeartOverlay').addEventListener('mousedown', startDrag);
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      dragOffset.x = e.clientX - dragStart.x;
+      dragOffset.y = e.clientY - dragStart.y;
+      const t = `translate(${dragOffset.x}px, ${dragOffset.y}px)`;
+      document.getElementById('hrOverlayWindow').style.transform = t;
+      document.getElementById('miniHeartOverlay').style.transform = t;
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // 实时模拟心率波动定时器
+    setInterval(() => {
+      if (appState.stateKey === 'LIVE') {
+        const delta = Math.round(Math.sin(Date.now() / 1200) * 2 + (Math.random() > 0.5 ? 1 : -1));
+        appState.currentBpm = Math.max(52, Math.min(195, appState.currentBpm + delta));
+        appState.history.push(appState.currentBpm);
+        if (appState.history.length > 60) appState.history.shift();
+        document.getElementById('bpmRangeSlider').value = appState.currentBpm;
+        document.getElementById('bpmSliderReadout').textContent = `${appState.currentBpm} bpm`;
+        renderInteractiveOverlay();
+      }
+    }, 1200);
+
+    // =========================================================================
+    // 6. 构建全状态视觉稿矩阵 (9 张标准卡片)
+    // =========================================================================
+    function buildSpecGridCards() {
+      const specs = [
+        { code: 'DISCONNECTED', title: '状态 1 · 未连接 (初始空闲)', collapsed: false, bpm: null },
+        { code: 'SCANNING', title: '状态 2 · 扫描中 (搜索 BLE 广播)', collapsed: false, bpm: null },
+        { code: 'DEVICES_FOUND', title: '状态 3 · 发现设备 (标记 0x180D)', collapsed: false, bpm: null },
+        { code: 'CONNECTING', title: '状态 4 · 连接中 (握手订阅 0x2A37)', collapsed: false, bpm: null },
+        { code: 'LIVE', title: '状态 5A · 实时数据 (展开态 · 84 bpm)', collapsed: false, bpm: 84 },
+        { code: 'LIVE', title: '状态 5B · 实时数据 (收起态 · 2位数 76 bpm)', collapsed: true, bpm: 76 },
+        { code: 'LIVE', title: '状态 5C · 实时数据 (收起态 · 3位数 168 bpm 零跳动)', collapsed: true, bpm: 168 },
+        { code: 'SIGNAL_LOST', title: '状态 6 · 信号中断 (保留最后值 + 过期标记)', collapsed: false, bpm: 144 },
+        { code: 'CONNECT_FAILED', title: '状态 7 · 连接失败 (超时或无心率特征引导)', collapsed: false, bpm: null }
+      ];
+
+      const container = document.getElementById('specCardsGrid');
+      container.innerHTML = '';
+
+      specs.forEach((item, index) => {
+        const meta = STATE_META[item.code];
+        const cardWrap = document.createElement('div');
+        cardWrap.className = 'bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col items-center';
+
+        const bpmDisplay = item.bpm !== null ? String(item.bpm) : '---';
+        const bpmColor = item.code === 'LIVE' ? '#F8FAFC' : (item.code === 'SIGNAL_LOST' ? '#F59E0B' : '#64748B');
+        const unitColor = item.code === 'LIVE' ? '#10B981' : (item.code === 'SIGNAL_LOST' ? '#F59E0B' : '#64748B');
+        const statsText = item.bpm !== null
+          ? `60s 均值 ${String(item.bpm - 2).padStart(3, ' ')} · 最高 ${String(item.bpm + 5).padStart(3, ' ')}`
+          : '60s 均值 --- · 最高 ---';
+
+        const canvasId = `specCanvas_${index}`;
+
+        cardWrap.innerHTML = `
+          <div class="w-full flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-200">${item.title}</span>
+            <span class="text-[10px] mono-num text-slate-400">${item.collapsed ? '316×176px' : '316×336px'}</span>
+          </div>
+          <div style="width: 316px; background-color: #11151C; border: 1px solid #2E3846;" class="rounded-md overflow-hidden shadow-lg">
+            <div style="background-color: #171C26; height: 28px;" class="flex items-center justify-between pl-2 pr-1.5 border-b border-slate-800/80">
+              <div class="flex items-center gap-2">
+                <span class="text-slate-400 text-xs font-bold"><span class="text-rose-500">♥</span> GARMIN</span>
+                <span style="background-color: ${meta.bg}; color: ${meta.fg};" class="px-1.5 py-0.5 rounded text-[11px] font-bold leading-none">
+                  ${meta.glyph} ${meta.label}
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span class="text-rose-400 font-semibold">♥极简</span>
+                <span class="mono-num">100%</span>
+                <span class="text-sky-400">${item.collapsed ? '▼ 连接' : '▲ 收起'}</span>
+                <span>✕</span>
+              </div>
+            </div>
+            <div style="height: 64px;" class="px-2.5 pt-1 pb-0.5 flex items-center justify-between">
+              <div class="flex items-baseline" style="width: 138px;">
+                <span style="width: 3ch; display: inline-block; text-align: right; color: ${bpmColor};" class="mono-num text-[36px] font-bold leading-none">${bpmDisplay}</span>
+                <span style="color: ${unitColor};" class="text-xs font-bold ml-1.5">bpm</span>
+              </div>
+              <div class="flex flex-col items-end text-right">
+                <div style="color: ${meta.freshColor};" class="text-[11px] font-medium">${meta.freshness}</div>
+                <div class="mono-num text-[11px] text-slate-400 mt-0.5">${statsText}</div>
+                <div class="text-[10px] text-slate-500 mt-0.5">设备: ${item.code === 'DISCONNECTED' || item.code === 'SCANNING' ? '尚未选择' : 'Forerunner 265'}</div>
+              </div>
+            </div>
+            <div class="px-2.5 pb-1.5">
+              <div style="background-color: #0C0F14; border: 1px solid #1E2633; height: 72px;" class="rounded-sm">
+                <canvas id="${canvasId}" width="294" height="70" class="w-full h-full block"></canvas>
+              </div>
+            </div>
+            ${item.collapsed ? '' : `
+            <div class="px-2.5 pb-2.5">
+              <div style="background-color: #171C26; border: 1px solid #263040;" class="p-1.5 rounded-sm flex flex-col gap-1.5">
+                <div style="background-color: #1C2330; color: ${meta.bannerColor}; height: 34px;" class="px-2 py-1 text-[11px] leading-snug flex items-center rounded-sm">
+                  ${meta.banner}
+                </div>
+                <div style="background-color: #0E1218; border: 1px solid #283242; height: 52px;" class="p-1 mono-num text-[10px] text-slate-300 space-y-0.5">
+                  ${item.code === 'DISCONNECTED' || item.code === 'SCANNING'
+                    ? `<div class="h-full flex items-center justify-center text-slate-500">${item.code === 'SCANNING' ? '正在搜索 BLE 0x180D 设备…' : '暂无设备，请点击扫描'}</div>`
+                    : `<div class="px-1.5 py-0.5 bg-sky-900/60 text-white flex justify-between"><span>Forerunner 265</span><span class="text-sky-400">[心率 0x180D]</span></div>
+                       <div class="px-1.5 py-0.5 text-slate-400 flex justify-between"><span>未知设备 (CC:41)</span><span class="text-slate-500">[CC:41]</span></div>`
+                  }
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span style="background-color: #222A38;" class="px-2 py-1 rounded-sm text-[10px] text-slate-200">${meta.scanText}</span>
+                  <span style="background-color: ${meta.connBg};" class="flex-1 py-1 px-2 rounded-sm text-[10px] font-semibold text-white text-center">${meta.connText}</span>
+                  <span style="background-color: #222A38;" class="px-2 py-1 rounded-sm text-[10px] text-slate-300">断开</span>
+                </div>
+              </div>
+            </div>
+            `}
+          </div>
+        `;
+        container.appendChild(cardWrap);
+
+        setTimeout(() => {
+          const c = document.getElementById(canvasId);
+          const series = item.bpm !== null ? seedHistory(item.bpm, item.code === 'SIGNAL_LOST' ? 46 : 60) : [];
+          drawSparklineOnCanvas(c, item.code, series);
+        }, 0);
+      });
+    }
+
+    function switchMainView(view) {
+      const views = {
+        interactive: document.getElementById('viewInteractive'),
+        minimalspec: document.getElementById('viewMinimalSpec'),
+        specgrid: document.getElementById('viewSpecGrid'),
+        builddoc: document.getElementById('viewBuildDoc')
+      };
+      const btns = {
+        interactive: document.getElementById('tabBtnInteractive'),
+        minimalspec: document.getElementById('tabBtnMinimalSpec'),
+        specgrid: document.getElementById('tabBtnSpecGrid'),
+        builddoc: document.getElementById('tabBtnBuildDoc')
+      };
+      Object.keys(views).forEach(k => {
+        if (k === view) {
+          views[k].classList.remove('hidden');
+          btns[k].className = 'px-3 py-1.5 rounded-md text-xs font-medium bg-sky-600 text-white transition';
+        } else {
+          views[k].classList.add('hidden');
+          btns[k].className = k === 'minimalspec'
+            ? 'px-3 py-1.5 rounded-md text-xs font-medium text-rose-400 hover:text-rose-200 transition'
+            : 'px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition';
+        }
+      });
+      if (view === 'specgrid') {
+        buildSpecGridCards();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setDisplayMode('pill');
+    });
+  </script>
+</body>
+</html>

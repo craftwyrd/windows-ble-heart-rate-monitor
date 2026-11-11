@@ -1,3 +1,5 @@
 bleak>=0.22,<1
+pystray>=0.19,<1
+Pillow>=10,<13
 pyinstaller>=6,<7
 pytest>=8,<10
