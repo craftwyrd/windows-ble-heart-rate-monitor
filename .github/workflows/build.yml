@@ -1,0 +1,111 @@
+name: Windows build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and package Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Run tests and build executable
+        run: ./build.ps1
+
+      - name: Check packaged application startup
+        run: |
+          $Executable = (Resolve-Path 'dist/PulseDesk.exe').Path
+          $AppProcess = Start-Process -FilePath $Executable -ArgumentList '--demo' -WindowStyle Hidden -PassThru
+          try {
+              if ($AppProcess.WaitForExit(10000)) {
+                  throw "PulseDesk exited during startup (exit code $($AppProcess.ExitCode))."
+              }
+              Write-Host 'Packaged demo remained running for 10 seconds.'
+          } finally {
+              if (-not $AppProcess.HasExited) {
+                  & taskkill.exe /PID $AppProcess.Id /T /F
+                  if ($LASTEXITCODE -ne 0) { throw 'Could not stop the smoke-test process tree.' }
+              }
+          }
+
+      - name: Generate checksum
+        run: |
+          $Checksum = (Get-FileHash 'dist/PulseDesk.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$Checksum  PulseDesk.exe" | Set-Content 'dist/SHA256SUMS.txt' -Encoding ascii
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: PulseDesk-windows-x64
+          path: |
+            dist/PulseDesk.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish tagged release
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: PulseDesk-windows-x64
+          path: release
+
+      - name: Publish release with executable and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Release tags must use vMAJOR.MINOR.PATCH.' >&2
+            exit 1
+          fi
+          (cd release && sha256sum --check SHA256SUMS.txt)
+          notes=(--generate-notes)
+          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
+            notes=(--notes-file "docs/releases/$RELEASE_TAG.md")
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)
+            if [[ "$is_draft" != true ]]; then
+              echo 'This release is already published; its assets will not be overwritten.'
+              exit 0
+            fi
+            gh release upload "$RELEASE_TAG" release/PulseDesk.exe release/SHA256SUMS.txt --clobber
+          else
+            gh release create "$RELEASE_TAG" release/PulseDesk.exe release/SHA256SUMS.txt \
+              --verify-tag --draft --title "PulseDesk $RELEASE_TAG" "${notes[@]}"
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest

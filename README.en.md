@@ -26,6 +26,8 @@ Support is based on the standard BLE heart-rate service and subscribable notific
 
 ### Connect a device
 
+Download the Windows x64 `PulseDesk.exe` from [GitHub Releases](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/releases/latest). The accompanying `SHA256SUMS.txt` provides the file checksum.
+
 The application currently uses Chinese interface labels; their English meanings are included below.
 
 1. Enable your heart-rate device's BLE broadcast or connection mode. For example, enable heart-rate broadcasting on a Forerunner 265 and keep it enabled.
@@ -101,6 +103,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 The script creates or reuses `.venv`, installs dependencies, runs tests, and packages the application with PyInstaller using `PulseDesk.spec`. Failed tests stop packaging. The output, `dist\PulseDesk.exe`, includes the window and EXE icon assets and runs without Python on the target computer.
 
+### Continuous integration and releases
+
+[Windows build and release](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/actions/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. It uses Windows x64 and Python 3.12 to run the same `build.ps1`, execute tests, package the EXE, and check that its demo process stays running. Successful runs provide a `PulseDesk-windows-x64` artifact retained for 14 days.
+
+When a maintainer pushes a `vMAJOR.MINOR.PATCH` tag, the workflow publishes a GitHub Release after validation, attaching `PulseDesk.exe` and `SHA256SUMS.txt`. Release notes come from `docs/releases/<tag>.md` when available, otherwise they are generated automatically. Reruns do not overwrite assets of an already published release. The first basic version is `v0.1.0`.
+
 ### Project structure
 
 | Path | Purpose |
@@ -110,6 +118,8 @@ The script creates or reuses `.venv`, installs dependencies, runs tests, and pac
 | `test_ui.py` | Windows UI regression tests |
 | `requirements.txt` | Runtime, test, and packaging dependencies |
 | `build.ps1` / `PulseDesk.spec` | Windows build script and PyInstaller configuration |
+| `.github/workflows/build.yml` | Windows CI and tagged release workflow |
+| `docs/releases/` | Version-specific release notes |
 | `assets/` | Icon assets |
 | `garmin_hr_overlay.py` / `template/` | Interface prototypes and design references |
 | [DESIGN_BRIEF.md](DESIGN_BRIEF.md) | Product goals and design requirements (Chinese) |

@@ -26,6 +26,8 @@ Windows 桌面实时心率悬浮窗。通过 Bluetooth Low Energy（BLE）连接
 
 ### 连接设备
 
+可从 [GitHub Releases](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/releases/latest) 下载 Windows x64 版 `PulseDesk.exe`；同页的 `SHA256SUMS.txt` 用于核对文件校验值。
+
 1. 开启心率设备的 BLE 广播或连接模式。例如，在 Forerunner 265 上开启“广播心率”，并保持广播开启。
 2. 打开电脑蓝牙，运行 `PulseDesk.exe`；本地构建的文件位于 `dist\PulseDesk.exe`。如果只有源码，请先按下方说明运行或构建。
 3. 点击 **扫描设备**，选择手表或心率带。优先尝试标有 `[心率 0x180D]` 的设备；无名称设备会显示地址后缀，未标记的设备也可手动尝试连接。
@@ -99,6 +101,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 脚本自动创建或复用 `.venv`、安装依赖、运行测试，并按 `PulseDesk.spec` 使用 PyInstaller 打包。测试失败时不会继续打包。输出为 `dist\PulseDesk.exe`，包含窗口与 EXE 图标资源，目标电脑无需安装 Python。
 
+### 持续集成与发布
+
+[Windows build and release](https://github.com/craftwyrd/windows-ble-heart-rate-monitor/actions/workflows/build.yml) 在推送 `main`、向 `main` 提交 PR 或手动触发时，使用 Windows x64 / Python 3.12 执行同一份 `build.ps1`，运行测试并打包 EXE，再检查演示进程能否持续运行。成功后可在工作流运行页面下载 `PulseDesk-windows-x64` 构建产物（保留 14 天）。
+
+维护者推送 `v主版本.次版本.修订版本` 标签时，流水线会在验证成功后自动发布 GitHub Release，附带 `PulseDesk.exe` 和 `SHA256SUMS.txt`。发布说明优先读取 `docs/releases/<标签>.md`，没有对应文件时自动生成；已发布版本的附件不会被重跑覆盖。首个基础版本为 `v0.1.0`。
+
 ### 项目结构
 
 | 路径 | 用途 |
@@ -108,6 +116,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 | `test_ui.py` | Windows 界面回归测试 |
 | `requirements.txt` | 运行、测试与打包依赖 |
 | `build.ps1` / `PulseDesk.spec` | Windows 构建脚本与 PyInstaller 配置 |
+| `.github/workflows/build.yml` | Windows 持续集成和标签发布流水线 |
+| `docs/releases/` | 各版本的发布说明 |
 | `assets/` | 图标资源 |
 | `garmin_hr_overlay.py` / `template/` | 界面原型与设计参考 |
 | [DESIGN_BRIEF.md](DESIGN_BRIEF.md) | 产品目标与设计需求 |
